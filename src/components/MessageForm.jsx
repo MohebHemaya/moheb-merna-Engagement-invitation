@@ -213,7 +213,7 @@ export default function MessageForm() {
                     value={message}
                     onChange={(e) => setMessage(e.target.value)}
                     maxLength={maxMessage}
-                    placeholder="أطيب التهاني وأجمل الأمنيات بمناسبة الخطوبة المباركة..."
+                    placeholder="أطيب التهاني وأجمل الأمنيات بمناسبة الخطوبة السعيدة..."
                     disabled={status === 'sending'}
                     className="w-full bg-[#FAF5EC] border border-gold/70 rounded-[3px] px-3.5 py-2.5 text-brown font-amiri placeholder:text-brown/40 focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold transition-colors text-base resize-none"
                     required

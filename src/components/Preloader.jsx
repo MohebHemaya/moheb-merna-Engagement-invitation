@@ -29,7 +29,7 @@ export default function Preloader() {
         }
 
         // 2. Preload hero image
-        const heroImgSrc = config.story?.[0]?.image || '/assets/couple-child.webp';
+        const heroImgSrc = config.couplePhoto || '/assets/couple-proposal.png';
         await new Promise((resolve) => {
           const img = new Image();
           img.src = heroImgSrc;

@@ -1,19 +1,15 @@
-import React, { useState, useRef, lazy, Suspense } from 'react';
+import React, { useState, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { config } from '../config';
 import Hero from '../components/Hero';
 import Envelope from '../components/Envelope';
 import Countdown from '../components/Countdown';
-import Story from '../components/Story';
 import EventDetails from '../components/EventDetails';
 import VideoBlock from '../components/VideoBlock';
 import MessageForm from '../components/MessageForm';
 import AudioToggle from '../components/AudioToggle';
 import Preloader from '../components/Preloader';
 import Particles from '../components/Particles';
-
-// Lazy load Gallery to reduce initial bundle payload
-const Gallery = lazy(() => import('../components/Gallery'));
 
 export default function Invitation() {
   const [isEnvelopeOpen, setIsEnvelopeOpen] = useState(false);
@@ -55,25 +51,19 @@ export default function Invitation() {
         animate={isEnvelopeOpen ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
         transition={{ duration: 1.0, ease: 'easeOut' }}
       >
-        {/* Hero Section with Gold Frame (Phase 2) */}
+        {/* Hero Section with Gold Frame and Couple Photo */}
         <Hero />
 
-        {/* Live Countdown (Phase 2) */}
+        {/* Live Countdown */}
         <Countdown />
 
-        {/* Story Scroll Timeline (Phase 3) */}
-        <Story />
-
-        {/* Event Details, Map & Calendar (Phase 4) */}
+        {/* Event Details, Map & Calendar */}
         <EventDetails />
 
-        {/* Media Block & Gallery (Phase 6) */}
+        {/* Media Block (if video exists) */}
         <VideoBlock />
-        <Suspense fallback={null}>
-          <Gallery />
-        </Suspense>
 
-        {/* Guest Messages Form (Phase 5) */}
+        {/* Guest Messages Form */}
         <MessageForm />
 
         {/* Subtle Footer */}

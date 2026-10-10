@@ -31,9 +31,9 @@ create table messages (
 -- تفعيل حماية Row Level Security
 alter table messages enable row level security;
 
--- السماح للضيوف بإرسال رسائل التهنئة فقط
-create policy "guests can insert" on messages
-  for insert to anon with check (true);
+-- السماح للجميع (الضيوف وأنت كأدمن) بإرسال رسائل التهنئة
+create policy "anyone can insert" on messages
+  for insert to public with check (true);
 
 -- السماح لحساب الأدمن فقط بقراءة الرسائل
 create policy "admin can read" on messages

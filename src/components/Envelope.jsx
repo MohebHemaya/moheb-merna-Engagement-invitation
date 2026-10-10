@@ -117,8 +117,8 @@ export default function Envelope({ onOpen }) {
               }}
             >
               <div className="w-full h-full border-[0.5px] border-gold/70 p-3 flex flex-col items-center justify-center">
-                <p className="text-gold-dark text-[11px] font-amiri mb-1">
-                  بسم الله الرحمن الرحيم
+                <p className="text-gold-dark text-[10px] sm:text-[11px] font-amiri mb-1">
+                  {config.headerBlessing || 'باسم الآب والابن والروح القدس، إله واحد، آمين'}
                 </p>
                 <div className="flex items-center justify-center gap-1.5 my-1">
                   <span className="h-[0.5px] w-6 bg-gold"></span>

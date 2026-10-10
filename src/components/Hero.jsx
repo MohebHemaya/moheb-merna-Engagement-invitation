@@ -22,7 +22,7 @@ export default function Hero() {
     }
   }, []);
 
-  const photoSrc = config.story?.[0]?.image || '/assets/couple-child.webp';
+  const photoSrc = config.story?.[0]?.image || '/assets/couple-proposal.png';
 
   return (
     <section
@@ -31,14 +31,24 @@ export default function Hero() {
     >
       <GoldFrame className="w-full max-w-md sm:max-w-lg shadow-xl">
         {/* 1. Bismillah */}
-        <motion.p
-          className="text-gold-dark text-sm sm:text-base font-medium mb-2 font-amiri"
+        {/* 1. Christian Blessing & Verse */}
+        <motion.div
+          className="mb-3 space-y-1"
           initial={prefersReducedMotion ? {} : { opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, ease: 'easeOut' }}
         >
-          بسم الله الرحمن الرحيم
-        </motion.p>
+          {config.headerBlessing && (
+            <p className="text-gold-dark text-xs sm:text-sm font-medium font-amiri tracking-wide">
+              {config.headerBlessing}
+            </p>
+          )}
+          {config.bibleVerse && (
+            <p className="text-brown-soft text-sm sm:text-base font-semibold font-amiri italic">
+              {config.bibleVerse}
+            </p>
+          )}
+        </motion.div>
 
         {/* 2. Invitation Greeting */}
         <motion.p

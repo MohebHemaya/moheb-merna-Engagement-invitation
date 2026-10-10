@@ -49,7 +49,7 @@ export default function Countdown() {
       className="countdown-wrapper my-6 w-full flex flex-col items-center justify-center"
       data-testid="countdown"
     >
-      <div className="flex items-center justify-center gap-2 sm:gap-4">
+      <div className="flex items-center justify-center gap-2 sm:gap-4 flex-row-reverse" >
         <DigitBox value={days} label="أيام" />
         <span className="text-gold font-bold text-xl mb-6">:</span>
         <DigitBox value={hours} label="ساعات" />

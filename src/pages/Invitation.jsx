@@ -25,28 +25,41 @@ export default function Invitation() {
 
   return (
     <main
-      className="min-h-screen bg-cream text-brown font-amiri relative selection:bg-gold selection:text-cream overflow-x-hidden"
+      className="min-h-screen text-brown font-amiri relative selection:bg-gold selection:text-cream overflow-x-hidden bg-cream"
     >
-      {/* Background ambient particles (Phase 7) */}
+      {/* 1. Fixed Luxury Background Image (White Roses, Gold Chandelier & Sheer Curtains) */}
+      <div
+        className="fixed inset-0 pointer-events-none z-0 overflow-hidden"
+        aria-hidden="true"
+      >
+        <div
+          className="absolute inset-0 bg-cover bg-center sm:bg-top bg-no-repeat"
+          style={{ backgroundImage: "url('/assets/engagement-bg.jpg')" }}
+        />
+        {/* Soft luxury veil overlay to preserve perfect text and gold frame contrast */}
+        <div className="absolute inset-0 bg-cream/80 backdrop-blur-[1px]" />
+      </div>
+
+      {/* 2. Floating Ambient Particles */}
       <Particles />
 
-      {/* Floating Audio Toggle (Phase 6) */}
+      {/* 3. Floating Audio Toggle */}
       <AudioToggle />
 
-      {/* Preloader (Phase 7) */}
+      {/* 4. Preloader */}
       <Preloader />
 
-      {/* Envelope Intro (Phase 1) */}
+      {/* 5. Envelope Intro */}
       {!isEnvelopeOpen && (
         <Envelope onOpen={handleEnvelopeOpen} />
       )}
 
-      {/* Main Invitation Content */}
+      {/* 6. Main Invitation Content */}
       <motion.div
         ref={contentRef}
         tabIndex={-1}
         id="invitation-content"
-        className="max-w-xl mx-auto px-4 py-8 sm:py-12 flex flex-col items-center outline-none"
+        className="relative z-20 max-w-xl mx-auto px-4 py-8 sm:py-12 flex flex-col items-center outline-none"
         initial={{ opacity: 0, y: 20 }}
         animate={isEnvelopeOpen ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
         transition={{ duration: 1.0, ease: 'easeOut' }}

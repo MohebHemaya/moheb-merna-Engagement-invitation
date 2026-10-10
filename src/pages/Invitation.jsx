@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
+import { motion } from 'framer-motion';
 import { config } from '../config';
 import Hero from '../components/Hero';
 import Envelope from '../components/Envelope';
@@ -11,13 +12,23 @@ import MessageForm from '../components/MessageForm';
 import AudioToggle from '../components/AudioToggle';
 import Preloader from '../components/Preloader';
 import Particles from '../components/Particles';
-import GoldFrame from '../components/GoldFrame';
 
 export default function Invitation() {
   const [isEnvelopeOpen, setIsEnvelopeOpen] = useState(false);
+  const contentRef = useRef(null);
+
+  const handleEnvelopeOpen = () => {
+    setIsEnvelopeOpen(true);
+    // Accessibility: Move focus to the revealed invitation content
+    setTimeout(() => {
+      contentRef.current?.focus();
+    }, 100);
+  };
 
   return (
-    <main className="min-h-screen bg-cream text-brown font-amiri relative selection:bg-gold selection:text-cream">
+    <main
+      className="min-h-screen bg-cream text-brown font-amiri relative selection:bg-gold selection:text-cream overflow-x-hidden"
+    >
       {/* Background ambient particles (Phase 7) */}
       <Particles />
 
@@ -27,11 +38,21 @@ export default function Invitation() {
       {/* Preloader (Phase 7) */}
       <Preloader />
 
-      {/* Main Invitation Container */}
-      <div className="max-w-xl mx-auto px-4 py-8 sm:py-12 flex flex-col items-center">
-        {/* Envelope Intro (Phase 1) */}
-        <Envelope onOpen={() => setIsEnvelopeOpen(true)} />
+      {/* Envelope Intro (Phase 1) */}
+      {!isEnvelopeOpen && (
+        <Envelope onOpen={handleEnvelopeOpen} />
+      )}
 
+      {/* Main Invitation Content */}
+      <motion.div
+        ref={contentRef}
+        tabIndex={-1}
+        id="invitation-content"
+        className="max-w-xl mx-auto px-4 py-8 sm:py-12 flex flex-col items-center outline-none"
+        initial={{ opacity: 0, y: 20 }}
+        animate={isEnvelopeOpen ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
+        transition={{ duration: 1.0, ease: 'easeOut' }}
+      >
         {/* Hero Section with Gold Frame (Phase 2) */}
         <Hero />
 
@@ -63,7 +84,7 @@ export default function Invitation() {
             {config.groom} & {config.bride}
           </p>
         </footer>
-      </div>
+      </motion.div>
     </main>
   );
 }

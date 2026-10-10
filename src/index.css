@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Amiri', serif;
+    background-color: #F6EFE0;
+    color: #3B2F1E;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background-color: #F6EFE0;
+    color: #3B2F1E;
+    overflow-x: hidden;
+  }
+}
+
+/* Diamond divider helper matching design tokens */
+.diamond-shape {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  transform: rotate(45deg);
+  background-color: #B08D3C;
+}

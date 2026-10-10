@@ -97,7 +97,26 @@ export default function EventDetails() {
             )}
           </div>
 
-          {/* 3. Optional Dress Code */}
+          {/* 3. Interactive Embedded Map */}
+          {config.mapsEmbedSrc && (
+            <div className="pt-2">
+              <div className="w-full h-48 sm:h-56 rounded-sm border border-gold/60 overflow-hidden shadow-inner bg-cream/50">
+                <iframe
+                  title="موقع قاعات لافي للحفلات"
+                  src={config.mapsEmbedSrc}
+                  width="100%"
+                  height="100%"
+                  style={{ border: 0 }}
+                  allowFullScreen=""
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  className="w-full h-full"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 4. Optional Dress Code */}
           {config.dressCode && (
             <div className="pt-2 border-t border-gold/30">
               <span className="text-xs font-semibold text-gold tracking-widest uppercase block mb-1">
@@ -109,8 +128,8 @@ export default function EventDetails() {
             </div>
           )}
 
-          {/* 4. Action Buttons */}
-          <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3">
+          {/* 5. Action Buttons */}
+          <div className="pt-3 flex flex-col sm:flex-row items-center justify-center gap-3">
             {config.mapsUrl && (
               <a
                 href={config.mapsUrl}
@@ -134,7 +153,7 @@ export default function EventDetails() {
                     d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
                   />
                 </svg>
-                افتح الخريطة
+                افتح الخريطة (Google Maps)
               </a>
             )}
 

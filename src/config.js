@@ -13,23 +13,48 @@ export const config = {
     {
       year: "البداية",
       title: "بدأت من زمان",
-      text: "كل حكاية حب تبدأ بنظرة وابتسامة، واليوم نكتب بداية جديدة لأجمل رحلة عمر تجمع محب وميرنا.",
-      image: "/assets/couple-child.webp",
+      text: "حكاية بدأت بذكريات بريئة، وضحكات طفولة جمعت محب وميرنا قبل أن تدرك القلوب معنى الحب.",
+      image: "/assets/moheb-mirna-childhood-closeup.jpg",
     },
     {
       year: "العهد",
-      title: "نبضة وفاء",
-      text: "تلاقت القلوب وتشاركت الأيام والخطوات، وازدادت المودة يوماً بعد يوم.",
-      image: "/assets/couple-child.webp",
+      title: "خطوات وذكريات",
+      text: "كبرت الأيام وكبرت معها المودة، وصارت كل لحظة تجمعنا دليلاً على أننا خُلقنا لنكمل بعضنا.",
+      image: "/assets/moheb-mirna-childhood-standing.jpg",
     },
     {
-      year: "الخطوبة",
-      title: "فرحة العمر",
-      text: "واليوم نتوّج هذه المحبة بإعلان خطوبتنا المباركة، ونسعد بمشاركتكم هذه الليلة التي لا تُنسى.",
-      image: "/assets/couple-child.webp",
+      year: "يوم التقديم",
+      title: "فرحة اللقاء والوعد",
+      text: "في يوم التقديم المبارك، تعاهدنا على المضي معاً في درب واحد، واليوم نعلن خطوبتنا بفرح لا تسعه الدنيا.",
+      image: "/assets/couple-proposal.png",
     },
   ],
-  gallery: [],
+  gallery: [
+    {
+      src: "/assets/couple-proposal.png",
+      alt: "محب وميرنا يوم التقديم",
+    },
+    {
+      src: "/assets/moheb-mirna-childhood-closeup.jpg",
+      alt: "محب وميرنا في الطفولة",
+    },
+    {
+      src: "/assets/moheb-mirna-childhood-standing.jpg",
+      alt: "محب وميرنا معاً",
+    },
+    {
+      src: "/assets/moheb-mirna-childhood-bench.jpg",
+      alt: "ذكريات مقعد الحديقة",
+    },
+    {
+      src: "/assets/moheb-child.png",
+      alt: "محب في الطفولة",
+    },
+    {
+      src: "/assets/mirna-child.png",
+      alt: "ميرنا في الطفولة",
+    },
+  ],
   musicSrc: "/assets/music.mp3",
   videoSrc: "",
   videoPoster: "",

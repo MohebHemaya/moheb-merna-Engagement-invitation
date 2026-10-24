@@ -1,9 +1,12 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const metaEnv =
+  typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : {};
+
+const supabaseUrl = metaEnv.VITE_SUPABASE_URL || '';
 const supabaseKey =
-  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ||
-  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+  metaEnv.VITE_SUPABASE_PUBLISHABLE_KEY ||
+  metaEnv.VITE_SUPABASE_ANON_KEY ||
   '';
 
 export const isSupabaseConfigured = Boolean(
@@ -12,6 +15,12 @@ export const isSupabaseConfigured = Boolean(
   supabaseUrl !== 'https://your-project.supabase.co'
 );
 
-export const supabase = isSupabaseConfigured
-  ? createClient(supabaseUrl, supabaseKey)
-  : null;
+export const supabase = (() => {
+  if (!isSupabaseConfigured) return null;
+  try {
+    return createClient(supabaseUrl, supabaseKey);
+  } catch (err) {
+    console.warn('Failed to initialize Supabase client:', err);
+    return null;
+  }
+})();

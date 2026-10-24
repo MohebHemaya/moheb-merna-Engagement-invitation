@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import GoldFrame from '../components/GoldFrame';
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
+import {
+  getLocalMessages,
+  deleteLocalMessage,
+  syncLocalMessagesToSupabase,
+} from '../lib/messagesService';
 
 const arabicNumberFormatter = new Intl.NumberFormat('ar-EG');
 
@@ -12,8 +17,16 @@ export default function Admin() {
   const [loginError, setLoginError] = useState('');
 
   const [messages, setMessages] = useState([]);
+  const [localMessages, setLocalMessages] = useState([]);
+  const [showLocalOnly, setShowLocalOnly] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [actionError, setActionError] = useState('');
+  const [syncStatus, setSyncStatus] = useState('');
+
+  // Load local messages on mount
+  useEffect(() => {
+    setLocalMessages(getLocalMessages());
+  }, []);
 
   // Check auth session
   useEffect(() => {
@@ -33,7 +46,14 @@ export default function Admin() {
   }, []);
 
   const fetchMessages = useCallback(async () => {
-    if (!isSupabaseConfigured || !supabase) return;
+    const locals = getLocalMessages();
+    setLocalMessages(locals);
+
+    if (!isSupabaseConfigured || !supabase) {
+      setMessages(locals);
+      return;
+    }
+
     setFetching(true);
     setActionError('');
 
@@ -44,10 +64,15 @@ export default function Admin() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setMessages(data || []);
+
+      // Merge Supabase messages with unsynced local messages
+      const supabaseIds = new Set((data || []).map((m) => m.id));
+      const unsyncedLocals = locals.filter((m) => !supabaseIds.has(m.id));
+      setMessages([...unsyncedLocals, ...(data || [])]);
     } catch (err) {
-      console.error('Error fetching messages:', err);
-      setActionError('تعذر جلب الرسائل. تأكد من تفعيل صلاحيات RLS في Supabase.');
+      console.warn('Error fetching Supabase messages, showing local:', err);
+      setActionError('تعذر الاتصال بـ Supabase حالياً، يتم عرض الرسائل المحفوظة محلياً على هذا الجهاز.');
+      setMessages(locals);
     } finally {
       setFetching(false);
     }
@@ -93,25 +118,46 @@ export default function Admin() {
   const handleDelete = async (id) => {
     if (!window.confirm('هل أنت متأكد من رغبتك في حذف هذه الرسالة؟')) return;
 
-    try {
-      const { error } = await supabase.from('messages').delete().eq('id', id);
-      if (error) throw error;
-      setMessages((prev) => prev.filter((m) => m.id !== id));
-    } catch (err) {
-      console.error('Error deleting message:', err);
-      alert('تعذر حذف الرسالة. تأكد من صلاحيات السياسة (RLS policy).');
+    // Remove from local storage if present
+    deleteLocalMessage(id);
+    setLocalMessages((prev) => prev.filter((m) => m.id !== id));
+
+    // Remove from Supabase if configured & authenticated
+    if (supabase && session) {
+      try {
+        const { error } = await supabase.from('messages').delete().eq('id', id);
+        if (error) console.warn('Supabase delete error:', error);
+      } catch (err) {
+        console.warn('Error deleting message from Supabase:', err);
+      }
     }
+
+    setMessages((prev) => prev.filter((m) => m.id !== id));
   };
 
-  const handleExportCsv = () => {
-    if (!messages.length) return;
+  const handleSyncLocal = async () => {
+    setSyncStatus('جاري المزامنة مع السحابة...');
+    const result = await syncLocalMessagesToSupabase();
+    if (result.error) {
+      setSyncStatus(`تعذرت المزامنة: ${result.error}`);
+    } else {
+      setSyncStatus(`تمت مزامنة ${result.syncedCount} رسالة بنجاح!`);
+      fetchMessages();
+    }
+    setTimeout(() => setSyncStatus(''), 4000);
+  };
 
-    const headers = ['المعرف', 'الاسم', 'الرسالة', 'تاريخ الإرسال'];
-    const rows = messages.map((m) => [
+  const handleExportCsv = (listToExport = messages) => {
+    const list = listToExport.length ? listToExport : localMessages;
+    if (!list.length) return;
+
+    const headers = ['المعرف', 'الاسم', 'الرسالة', 'تاريخ الإرسال', 'الحالة'];
+    const rows = list.map((m) => [
       `"${m.id}"`,
       `"${m.name.replace(/"/g, '""')}"`,
       `"${m.message.replace(/"/g, '""')}"`,
       `"${new Date(m.created_at).toLocaleString('ar-EG')}"`,
+      `"${m.synced === false ? 'محلي' : 'متزامن'}"`,
     ]);
 
     const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((r) => r.join(','))].join('\r\n');
@@ -128,9 +174,9 @@ export default function Admin() {
 
   return (
     <div className="min-h-screen bg-cream text-brown font-amiri p-4 sm:p-8 flex flex-col items-center">
-      {/* If not logged in, show Auth Form */}
+      {/* If not logged in, show Auth Form with optional Local Messages preview */}
       {!session ? (
-        <div className="max-w-md w-full my-auto">
+        <div className="max-w-md w-full my-auto space-y-6">
           <GoldFrame innerClassName="p-6 sm:p-8">
             <header className="text-center mb-6">
               <h1 className="text-2xl font-bold text-gold-dark mb-1">
@@ -186,12 +232,72 @@ export default function Admin() {
                 {loading ? 'جاري التحقق...' : 'دخول'}
               </button>
             </form>
+
+            {/* Quick Access to Local Messages Button */}
+            <div className="mt-6 pt-4 border-t border-gold/20 text-center">
+              <button
+                type="button"
+                onClick={() => setShowLocalOnly(!showLocalOnly)}
+                className="text-xs text-gold-dark hover:underline font-amiri cursor-pointer"
+              >
+                {showLocalOnly
+                  ? 'إخفاء الرسائل المحفوظة على هذا الجهاز'
+                  : `عرض الرسائل المحفوظة على هذا الجهاز (${arabicNumberFormatter.format(localMessages.length)})`}
+              </button>
+            </div>
           </GoldFrame>
+
+          {/* Local Messages Drawer for when Supabase is offline/unconfigured */}
+          {showLocalOnly && (
+            <div className="w-full">
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-base font-bold text-gold-dark">
+                  الرسائل المخزنة محلياً ({arabicNumberFormatter.format(localMessages.length)})
+                </h2>
+                {localMessages.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => handleExportCsv(localMessages)}
+                    className="px-3 py-1 bg-gold text-cream text-xs rounded hover:bg-gold-dark transition-colors cursor-pointer"
+                  >
+                    تصدير CSV
+                  </button>
+                )}
+              </div>
+
+              {localMessages.length === 0 ? (
+                <p className="text-center text-xs text-brown-soft py-4 bg-[#FAF5EC] border border-gold/30 rounded">
+                  لا توجد رسائل مخزنة محلياً على هذا المتصفح.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {localMessages.map((m) => (
+                    <GoldFrame key={m.id} innerClassName="p-3 flex flex-col gap-1">
+                      <div className="flex items-baseline justify-between">
+                        <span className="font-bold text-brown text-sm">{m.name}</span>
+                        <span className="text-[11px] text-brown-soft">
+                          {new Intl.DateTimeFormat('ar-EG', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(m.created_at))}
+                        </span>
+                      </div>
+                      <p className="text-xs text-brown/90 leading-relaxed whitespace-pre-line">{m.message}</p>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(m.id)}
+                        className="text-[11px] text-red-600 hover:underline self-end mt-1 cursor-pointer"
+                      >
+                        حذف
+                      </button>
+                    </GoldFrame>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       ) : (
         /* If logged in, show Dashboard */
         <div className="max-w-3xl w-full">
-          <div className="flex items-center justify-between mb-6 pb-4 border-b border-gold/30">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 pb-4 border-b border-gold/30 gap-4">
             <div>
               <h1 className="text-2xl sm:text-3xl font-bold text-gold-dark">
                 رسائل التهنئة
@@ -201,10 +307,20 @@ export default function Admin() {
               </p>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {localMessages.some((m) => !m.synced) && (
+                <button
+                  type="button"
+                  onClick={handleSyncLocal}
+                  className="px-3 py-2 bg-amber-600 text-cream text-xs sm:text-sm rounded-[3px] hover:bg-amber-700 transition-colors cursor-pointer"
+                >
+                  مزامنة مع السحابة
+                </button>
+              )}
+
               <button
                 type="button"
-                onClick={handleExportCsv}
+                onClick={() => handleExportCsv(messages)}
                 disabled={!messages.length}
                 className="px-4 py-2 bg-gold text-cream text-xs sm:text-sm rounded-[3px] hover:bg-gold-dark transition-colors disabled:opacity-50 cursor-pointer"
               >
@@ -221,8 +337,14 @@ export default function Admin() {
             </div>
           </div>
 
+          {syncStatus && (
+            <div className="mb-4 p-2.5 bg-blue-50 border border-blue-300 rounded text-blue-800 text-xs text-center">
+              {syncStatus}
+            </div>
+          )}
+
           {actionError && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-300 rounded text-red-700 text-xs text-center">
+            <div className="mb-4 p-3 bg-amber-50 border border-amber-300 rounded text-amber-800 text-xs text-center">
               {actionError}
             </div>
           )}
@@ -248,6 +370,11 @@ export default function Admin() {
                           timeStyle: 'short',
                         }).format(new Date(m.created_at))}
                       </span>
+                      {m.synced === false && (
+                        <span className="text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded border border-amber-300">
+                          محلي
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm sm:text-base text-brown/90 leading-relaxed whitespace-pre-line">
                       {m.message}

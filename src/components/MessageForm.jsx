@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import GoldFrame from './GoldFrame';
-import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
+import { submitGuestMessage } from '../lib/messagesService';
 import { audio } from '../lib/audio';
 import { useReducedMotion } from '../hooks/useReducedMotion';
 
@@ -20,6 +20,8 @@ export default function MessageForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (status === 'sending') return;
 
     // Validation
     const trimmedName = name.trim();
@@ -55,19 +57,18 @@ export default function MessageForm() {
     }
 
     try {
-      if (isSupabaseConfigured && supabase) {
-        const { error } = await supabase.from('messages').insert([
-          { name: trimmedName, message: trimmedMsg },
-        ]);
+      const res = await submitGuestMessage({
+        name: trimmedName,
+        message: trimmedMsg,
+      });
 
-        if (error) throw error;
+      if (res && res.success) {
+        audio.play('send');
+        setStatus('success');
       } else {
-        // Fallback simulation when Supabase credentials are yet to be supplied in .env
-        await new Promise((resolve) => setTimeout(resolve, 800));
+        setStatus('error');
+        setErrorMessage('تعذر إرسال الرسالة حالياً، يرجى المحاولة مرة أخرى.');
       }
-
-      audio.play('send');
-      setStatus('success');
     } catch (err) {
       console.error('Error submitting message:', err);
       setStatus('error');
@@ -152,20 +153,22 @@ export default function MessageForm() {
                   onClick={() => {
                     setName('');
                     setMessage('');
+                    setHoneypot('');
+                    setErrorMessage('');
                     setStatus('idle');
                   }}
-                  className="mt-6 text-sm text-gold-dark hover:underline font-amiri inline-block"
+                  className="mt-6 text-sm text-gold-dark hover:underline font-amiri inline-block cursor-pointer"
                 >
                   إرسال رسالة أخرى
                 </button>
               </motion.div>
             ) : (
               <form key="form" onSubmit={handleSubmit} className="space-y-5">
-                {/* Honeypot field (hidden from legitimate users) */}
-                <div className="hidden" aria-hidden="true">
+                {/* Honeypot field (hidden from legitimate users, styled to prevent autofill) */}
+                <div style={{ position: 'absolute', opacity: 0, zIndex: -1, pointerEvents: 'none', height: 0, overflow: 'hidden' }} aria-hidden="true">
                   <input
                     type="text"
-                    name="contact_honeypot_field"
+                    name="preferred_gift_honey"
                     value={honeypot}
                     onChange={(e) => setHoneypot(e.target.value)}
                     tabIndex={-1}
@@ -185,9 +188,12 @@ export default function MessageForm() {
                     id="guest-name"
                     type="text"
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(e) => {
+                      setName(e.target.value);
+                      if (errorMessage) setErrorMessage('');
+                    }}
                     maxLength={maxName}
-                    placeholder="مثال: محمد علي"
+                    placeholder="مثال: د. محمد علي"
                     disabled={status === 'sending'}
                     className="w-full bg-[#FAF5EC] border border-gold/70 rounded-[3px] px-3.5 py-2.5 text-brown font-amiri placeholder:text-brown/40 focus:outline-none focus:border-gold focus:ring-1 focus:ring-gold transition-colors text-base"
                     required
@@ -203,7 +209,13 @@ export default function MessageForm() {
                     >
                       رسالة التهنئة <span className="text-gold">*</span>
                     </label>
-                    <span className="text-xs text-brown-soft font-amiri">
+                    <span
+                      className={`text-xs font-amiri transition-colors ${
+                        message.length >= maxMessage - 20
+                          ? 'text-amber-700 font-bold'
+                          : 'text-brown-soft'
+                      }`}
+                    >
                       {arabicFormatter.format(message.length)} / {arabicFormatter.format(maxMessage)}
                     </span>
                   </div>
@@ -211,7 +223,10 @@ export default function MessageForm() {
                     id="guest-message"
                     rows={4}
                     value={message}
-                    onChange={(e) => setMessage(e.target.value)}
+                    onChange={(e) => {
+                      setMessage(e.target.value);
+                      if (errorMessage) setErrorMessage('');
+                    }}
                     maxLength={maxMessage}
                     placeholder="أطيب التهاني وأجمل الأمنيات بمناسبة الخطوبة السعيدة..."
                     disabled={status === 'sending'}
@@ -222,9 +237,13 @@ export default function MessageForm() {
 
                 {/* Error message display */}
                 {errorMessage && (
-                  <div className="p-2.5 bg-red-50 border border-red-300 rounded text-red-700 text-xs sm:text-sm font-amiri text-center">
+                  <motion.div
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-2.5 bg-red-50 border border-red-300 rounded text-red-700 text-xs sm:text-sm font-amiri text-center"
+                  >
                     {errorMessage}
-                  </div>
+                  </motion.div>
                 )}
 
                 {/* Submit Button */}

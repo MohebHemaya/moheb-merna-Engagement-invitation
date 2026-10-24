@@ -51,13 +51,17 @@ export function markLocalMessageSynced(id) {
 }
 
 /**
- * Delete a message from localStorage.
+ * Delete a message from localStorage by ID and optional name+message match.
  */
-export function deleteLocalMessage(id) {
+export function deleteLocalMessage(id, name, message) {
   if (typeof window === 'undefined' || !window.localStorage) return [];
   try {
     const existing = getLocalMessages();
-    const updated = existing.filter((m) => m.id !== id);
+    const updated = existing.filter((m) => {
+      if (m.id === id) return false;
+      if (name && message && m.name === name && m.message === message) return false;
+      return true;
+    });
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     return updated;
   } catch (err) {
@@ -71,7 +75,7 @@ export function deleteLocalMessage(id) {
  * Resilient offline-first approach:
  * 1. Saves to localStorage immediately (message is never lost).
  * 2. Attempts to push to Supabase with timeout.
- * 3. Returns success even if Supabase network fails, so guests always get confirmation.
+ * 3. Aligns ID and marks synced so messages are never duplicated in Admin.
  */
 export async function submitGuestMessage({ name, message }) {
   const trimmedName = name.trim();
@@ -96,9 +100,15 @@ export async function submitGuestMessage({ name, message }) {
   // 2. If Supabase is configured, try sending to Supabase with 5s timeout
   if (isSupabaseConfigured && supabase) {
     try {
-      const insertPromise = supabase.from('messages').insert([
-        { name: trimmedName, message: trimmedMsg },
-      ]);
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+      const insertPayload = isUUID
+        ? { id, name: trimmedName, message: trimmedMsg }
+        : { name: trimmedName, message: trimmedMsg };
+
+      const insertPromise = supabase
+        .from('messages')
+        .insert([insertPayload])
+        .select('id, created_at');
 
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('Supabase request timeout')), 5000)
@@ -109,12 +119,21 @@ export async function submitGuestMessage({ name, message }) {
         throw response.error;
       }
 
-      // Mark local copy as synced
-      markLocalMessageSynced(id);
-      return { success: true, synced: true, id };
+      // If Supabase assigned an ID, use it
+      const supabaseId = response?.data?.[0]?.id || id;
+
+      // Mark local copy as synced and update ID to match Supabase
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const existing = getLocalMessages();
+        const updated = existing.map((m) =>
+          m.id === id ? { ...m, id: supabaseId, synced: true } : m
+        );
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      }
+
+      return { success: true, synced: true, id: supabaseId };
     } catch (err) {
       console.warn('Supabase sync failed (message safely stored locally):', err);
-      // Return success with localFallback flag so user experience remains smooth
       return { success: true, synced: false, localFallback: true, id };
     }
   }

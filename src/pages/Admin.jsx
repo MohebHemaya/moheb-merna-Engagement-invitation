@@ -46,7 +46,16 @@ export default function Admin() {
   }, []);
 
   const fetchMessages = useCallback(async () => {
-    const locals = getLocalMessages();
+    const rawLocals = getLocalMessages();
+    // Deduplicate local storage entries internally
+    const uniqueLocalsMap = new Map();
+    rawLocals.forEach((m) => {
+      const key = `${m.name.trim()}_${m.message.trim()}`;
+      if (!uniqueLocalsMap.has(key) || m.synced) {
+        uniqueLocalsMap.set(key, m);
+      }
+    });
+    const locals = Array.from(uniqueLocalsMap.values());
     setLocalMessages(locals);
 
     if (!isSupabaseConfigured || !supabase) {
@@ -65,10 +74,38 @@ export default function Admin() {
 
       if (error) throw error;
 
-      // Merge Supabase messages with unsynced local messages
-      const supabaseIds = new Set((data || []).map((m) => m.id));
-      const unsyncedLocals = locals.filter((m) => !supabaseIds.has(m.id));
-      setMessages([...unsyncedLocals, ...(data || [])]);
+      const supabaseList = data || [];
+      const supabaseIds = new Set(supabaseList.map((m) => m.id));
+
+      // Filter local messages: ONLY keep ones that are truly NOT in Supabase
+      const unsyncedLocals = locals.filter((localMsg) => {
+        if (localMsg.synced) return false;
+        if (supabaseIds.has(localMsg.id)) return false;
+        const existsInSupabase = supabaseList.some(
+          (sm) =>
+            sm.id === localMsg.id ||
+            (sm.name.trim() === localMsg.name.trim() && sm.message.trim() === localMsg.message.trim())
+        );
+        return !existsInSupabase;
+      });
+
+      // Update local storage to clean up and mark matching ones as synced
+      const updatedLocals = locals.map((lm) => {
+        const matching = supabaseList.find(
+          (sm) =>
+            sm.id === lm.id ||
+            (sm.name.trim() === lm.name.trim() && sm.message.trim() === lm.message.trim())
+        );
+        return matching ? { ...lm, id: matching.id, synced: true } : lm;
+      });
+      try {
+        localStorage.setItem('engagement_guest_messages', JSON.stringify(updatedLocals));
+        setLocalMessages(updatedLocals);
+      } catch {
+        // ignore
+      }
+
+      setMessages([...unsyncedLocals, ...supabaseList]);
     } catch (err) {
       console.warn('Error fetching Supabase messages, showing local:', err);
       setActionError('تعذر الاتصال بـ Supabase حالياً، يتم عرض الرسائل المحفوظة محلياً على هذا الجهاز.');
@@ -115,14 +152,16 @@ export default function Admin() {
     setSession(null);
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (id, name, message) => {
     if (!window.confirm('هل أنت متأكد من رغبتك في حذف هذه الرسالة؟')) return;
 
-    // Remove from local storage if present
-    deleteLocalMessage(id);
-    setLocalMessages((prev) => prev.filter((m) => m.id !== id));
+    // Remove from local storage by id and name+message
+    deleteLocalMessage(id, name, message);
+    setLocalMessages((prev) =>
+      prev.filter((m) => m.id !== id && !(name && message && m.name === name && m.message === message))
+    );
 
-    // Remove from Supabase if configured & authenticated
+    // Remove from Supabase if authenticated
     if (supabase && session) {
       try {
         const { error } = await supabase.from('messages').delete().eq('id', id);
@@ -132,7 +171,9 @@ export default function Admin() {
       }
     }
 
-    setMessages((prev) => prev.filter((m) => m.id !== id));
+    setMessages((prev) =>
+      prev.filter((m) => m.id !== id && !(name && message && m.name === name && m.message === message))
+    );
   };
 
   const handleSyncLocal = async () => {
@@ -282,7 +323,7 @@ export default function Admin() {
                       <p className="text-xs text-brown/90 leading-relaxed whitespace-pre-line">{m.message}</p>
                       <button
                         type="button"
-                        onClick={() => handleDelete(m.id)}
+                        onClick={() => handleDelete(m.id, m.name, m.message)}
                         className="text-[11px] text-red-600 hover:underline self-end mt-1 cursor-pointer"
                       >
                         حذف
@@ -383,7 +424,7 @@ export default function Admin() {
 
                   <button
                     type="button"
-                    onClick={() => handleDelete(m.id)}
+                    onClick={() => handleDelete(m.id, m.name, m.message)}
                     className="text-xs text-red-700 hover:text-red-900 border border-red-300 rounded px-2.5 py-1 hover:bg-red-50 transition-colors self-end sm:self-center cursor-pointer"
                   >
                     حذف

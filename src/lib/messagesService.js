@@ -84,7 +84,11 @@ export async function submitGuestMessage({ name, message }) {
   const id =
     typeof crypto !== 'undefined' && crypto.randomUUID
       ? crypto.randomUUID()
-      : `msg_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+      : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+          const r = (Math.random() * 16) | 0;
+          const v = c === 'x' ? r : (r & 0x3) | 0x8;
+          return v.toString(16);
+        });
 
   const localRecord = {
     id,
@@ -97,7 +101,7 @@ export async function submitGuestMessage({ name, message }) {
   // 1. Save locally first
   saveLocalMessage(localRecord);
 
-  // 2. If Supabase is configured, try sending to Supabase with 5s timeout
+  // 2. If Supabase is configured, try sending to Supabase with 10s timeout
   if (isSupabaseConfigured && supabase) {
     try {
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
@@ -105,13 +109,15 @@ export async function submitGuestMessage({ name, message }) {
         ? { id, name: trimmedName, message: trimmedMsg }
         : { name: trimmedName, message: trimmedMsg };
 
+      // NOTE: Do NOT chain .select() here!
+      // Row Level Security allows public/anon to INSERT but restricts SELECT to authenticated admin.
+      // Chaining .select() asks PostgreSQL for RETURNING rows, which causes 42501 (RLS violation) for unauthenticated guests.
       const insertPromise = supabase
         .from('messages')
-        .insert([insertPayload])
-        .select('id, created_at');
+        .insert([insertPayload]);
 
       const timeoutPromise = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error('Supabase request timeout')), 5000)
+        setTimeout(() => reject(new Error('Supabase request timeout')), 10000)
       );
 
       const response = await Promise.race([insertPromise, timeoutPromise]);
@@ -119,19 +125,10 @@ export async function submitGuestMessage({ name, message }) {
         throw response.error;
       }
 
-      // If Supabase assigned an ID, use it
-      const supabaseId = response?.data?.[0]?.id || id;
+      // Mark local copy as synced
+      markLocalMessageSynced(id);
 
-      // Mark local copy as synced and update ID to match Supabase
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const existing = getLocalMessages();
-        const updated = existing.map((m) =>
-          m.id === id ? { ...m, id: supabaseId, synced: true } : m
-        );
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      }
-
-      return { success: true, synced: true, id: supabaseId };
+      return { success: true, synced: true, id };
     } catch (err) {
       console.warn('Supabase sync failed (message safely stored locally):', err);
       return { success: true, synced: false, localFallback: true, id };
